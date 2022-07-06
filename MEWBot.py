@@ -100,8 +100,12 @@ def MainKeyboardHandler(message):
                 lnk.write(message.text + '\n')
                 lnk.close()
             else:
-                if os.path.exists("CatsDownloaded"):
-                    shutil.rmtree("CatsDownloaded")
+                if os.path.exists("CatsDownloaded/"+str(getNameUser(message))+"/"):
+                    shutil.rmtree("CatsDownloaded/"+str(getNameUser(message))+"/")
+                else:
+                    os.chdir("CatsDownloaded/")
+                    os.mkdir(str(getNameUser(message))+"/")
+                    os.chdir("..")
                 bot.send_message(message.chat.id, "Loaing...")
                 sti = open("load.jpg", 'rb')
                 bot.send_sticker(message.chat.id, sti)
@@ -109,12 +113,12 @@ def MainKeyboardHandler(message):
                 request_word = message.text + ' кот фото'
                 num_pic = 5
                 filters = dict(size='medium')
-                ggl = GoogleImageCrawler(storage={'root_dir': 'CatsDownloaded'})
+                ggl = GoogleImageCrawler(storage={'root_dir': 'CatsDownloaded/'+str(getNameUser(message))+"/"})
                 ggl.crawl(keyword=request_word, filters = filters, max_num=num_pic)
 
-                for img in os.listdir('CatsDownloaded/'):
+                for img in os.listdir('CatsDownloaded/'+str(getNameUser(message))+"/"):
                     #print(img)
-                    sti = open('CatsDownloaded/' + img, 'rb')
+                    sti = open('CatsDownloaded/'+str(getNameUser(message))+"/" + img, 'rb')
                     bot.send_photo(message.chat.id, sti)
 
 @bot.callback_query_handler(func = lambda call: True)
@@ -418,7 +422,7 @@ def getNameUser(message):
     fnm = message.from_user.first_name
     lnm = message.from_user.last_name
     unm = message.from_user.username
-    name = str(uid) + ": " + str(fnm) + " " + str(lnm) + " - " + str(unm)
+    name = str(uid) + " " + str(fnm) + " " + str(lnm) + " " + str(unm)
     return(name)
 
 #Run
