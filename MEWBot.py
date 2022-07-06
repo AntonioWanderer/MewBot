@@ -1,8 +1,13 @@
+import os, sys
+import os.path
+from requests.exceptions import ConnectionError, ReadTimeout
 import telebot
 import Config
 import random
 from telebot import types
 import datetime
+from icrawler.builtin import GoogleImageCrawler
+import shutil
 
 grad = {"NoUser": 0}
 tm = {"NoTime": 0}
@@ -17,36 +22,58 @@ def welcome(message):
     item2 = types.KeyboardButton("Определи, какой я котик")
     item3 = types.KeyboardButton("Покормить")
     item4 = types.KeyboardButton("Мемы про котов")
-    markup.add(item1, item2, item3, item4)
+    item5 = types.KeyboardButton("Рекомендовать мем")
+    markup.add(item1, item2, item3, item4, item5)
     bot.send_message(message.chat.id, "Мур, {0.first_name}!\n я - <b>{1.first_name}</b>, твой цифровой кот (и моя миска опять пуста!)  \n Что ты там хомячишь? Поделись? ".format(message.from_user, bot.get_me()),
                      parse_mode = 'html', reply_markup = markup)
     sti = open('intro.jpg', 'rb')
     bot.send_sticker(message.chat.id, sti)
-    
+
     Ub = open('UserDialogsBase.txt', 'a')
     Ub.write(str(getName(message)) + '\n')
     Ub.close()
-    
+
     grad[getName(message)] = 0
     tm[getName(message)] = datetime.datetime.now()
     par[getName(message)] = [0, 0, 0]
-    
+
     Hist = open('AllActivityHistory.txt', 'a')
-    Hist.write("New user: " + getNameUser(message) + '\n')
+    Hist.write(str(datetime.datetime.now()) + " " + getNameUser(message) + " New user" + '\n')
     Hist.close()
 
-@bot.message_handler(content_types=['text'])
-def lalala(message):
+@bot.message_handler(content_types=['photo', 'document', 'video'])
+def addMem(message):
     Hist = open('AllActivityHistory.txt', 'a')
-    Hist.write("Message: " + getNameUser(message) + " -- " + message.text + '\n')
+    Hist.write(str(datetime.datetime.now()) + " " + getNameUser(message) + " New content №" + str(len(os.listdir('UserMemes/'))+1) + '\n')
+    Hist.close()
+    if message.content_type == "photo":
+        fileID = message.photo[-1].file_id
+        file_info = bot.get_file(fileID)
+        downloaded_file = bot.download_file(file_info.file_path)
+        with open("UserMemes/" + str(len(os.listdir('UserMemes/'))+1) + ".jpg", 'wb') as new_file:
+            new_file.write(downloaded_file)
+
+    if message.content_type == "document":
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        with open("UserMemes/" + message.document.file_name, 'wb') as new_file:
+            new_file.write(downloaded_file)
+
+    if message.content_type == "video":
+        file_info = bot.get_file(message.video.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        #src =  file_info.file_path
+        with open("UserMemes/" + str(len(os.listdir('UserMemes/'))+1) + ".mp4", 'wb') as new_file:
+            new_file.write(downloaded_file)
+
+@bot.message_handler(content_types=['text'])
+def MainKeyboardHandler(message):
+    Hist = open('AllActivityHistory.txt', 'a')
+    Hist.write(str(datetime.datetime.now()) + " " + getNameUser(message) + " Message: " + " -- " + message.text + '\n')
     Hist.close()
     if message.chat.type == 'private':
         if message.text == 'Покажи мне котика!':
-            pass
-            n = random.randint(1, 25)
-            num = "Show\\" + str(n) + ".jpg"
-            sti = open(num, 'rb')
-            bot.send_sticker(message.chat.id, sti)
+            bot.send_message(message.chat.id, "Напиши, какой должен быть кот (ласковый, безумный, дикий, пушистый и т.д.) Или что он делает")
         elif message.text == 'Определи, какой я котик':
             bot.send_message(message.chat.id, "Поехали! 6 вопросов")
             par[getName(message)] = [0, 0, 0]
@@ -58,19 +85,44 @@ def lalala(message):
             item2 = types.InlineKeyboardButton("Мясом", callback_data = 'meat')
             item3 = types.InlineKeyboardButton("Травой", callback_data = 'grass')
             markup.add(item1, item2, item3)
-            
+
             bot.send_message(message.chat.id, "Чем покормишь? Мрр", reply_markup = markup)
         elif message.text == 'Мемы про котов':
-            sti = open("load.jpg", 'rb')
-            bot.send_sticker(message.chat.id, sti)
-            bot.send_message(message.chat.id, "Mew! Раздел в разработке :)")
-    
+            l = os.listdir('Memes/')
+            print('Memes/' + l[random.randint(0,len(l)-1)])
+            sti = open('Memes/' + l[random.randint(0,len(l)-1)], 'rb')
+            bot.send_photo(message.chat.id, sti)
+        elif message.text == 'Рекомендовать мем':
+            bot.send_message(message.chat.id, "Просто скинь мне картинку с мемом (или видео, файл, ссылку)! Модератор просмотрит его (поржёт) и добавит в коллекцию.")
+        else:
+            if "http" in message.text:
+                lnk = open('UserMemes/MemLinks.txt', 'a')
+                lnk.write(message.text + '\n')
+                lnk.close()
+            else:
+                if os.path.exists("CatsDownloaded"):
+                    shutil.rmtree("CatsDownloaded")
+                bot.send_message(message.chat.id, "Loaing...")
+                sti = open("load.jpg", 'rb')
+                bot.send_sticker(message.chat.id, sti)
+
+                request_word = message.text + ' кот фото'
+                num_pic = 5
+                filters = dict(size='medium')
+                ggl = GoogleImageCrawler(storage={'root_dir': 'CatsDownloaded'})
+                ggl.crawl(keyword=request_word, filters = filters, max_num=num_pic)
+
+                for img in os.listdir('CatsDownloaded/'):
+                    #print(img)
+                    sti = open('CatsDownloaded/' + img, 'rb')
+                    bot.send_photo(message.chat.id, sti)
+
 @bot.callback_query_handler(func = lambda call: True)
 def callback_infine(call):
     global grad
     global par
     Hist = open('AllActivityHistory.txt', 'a')
-    Hist.write("Call: " + getNameUser(call) + " -- " + call.message.text + " " + call.data + '\n')
+    Hist.write(str(datetime.datetime.now()) + " " + getNameUser(call) + " Call: " + " -- " + call.message.text + " " + call.data + '\n')
     Hist.close()
     grad1 = grad[getName(call.message)]
     par1 = par[getName(call.message)]
@@ -206,12 +258,12 @@ def callback_infine(call):
                 bot.send_message(call.message.chat.id, frmMsg(call))
             elif call.data == 'Six4':
                 par1[2] = par1[2] + 1
-                bot.send_message(call.message.chat.id, frmMsg(call))            
+                bot.send_message(call.message.chat.id, frmMsg(call))
     except Exception as e:
         print(repr(e))
     grad[getName(call.message)] = grad1
     par[getName(call.message)] = par1
-    
+
 def chLvl(message):
     global grad
     global tm
@@ -220,7 +272,7 @@ def chLvl(message):
     now = datetime.datetime.now()
     a = int(((now.day * 24) + now.hour) * 60 + now.minute)
     b = int(((tm1.day * 24) + tm1.hour) * 60 + tm1.minute)
-    diff = a - b 
+    diff = a - b
     if diff > 15:
         mn = 3
     elif diff > 10:
@@ -247,7 +299,7 @@ def catTest(num, message):
         item4 = types.InlineKeyboardButton("Ой, я же цветок уронил!", callback_data = 'One4')
         markup.add(item1, item2, item3, item4)
         bot.send_message(message.chat.id, "Когда хозяин приходит с работы", reply_markup = markup)
-    elif num == 1:        
+    elif num == 1:
         markup = types.InlineKeyboardMarkup(row_width = 1)
         item1 = types.InlineKeyboardButton("Пуста, я вижу дно!", callback_data = 'Two1')
         item2 = types.InlineKeyboardButton("Наполовину пуста...", callback_data = 'Two2')
@@ -255,7 +307,7 @@ def catTest(num, message):
         item4 = types.InlineKeyboardButton("Крошки с пола лучше", callback_data = 'Two4')
         markup.add(item1, item2, item3, item4)
         bot.send_message(message.chat.id, "Моя миска:", reply_markup = markup)
-    elif num == 2:            
+    elif num == 2:
         markup = types.InlineKeyboardMarkup(row_width = 1)
         item1 = types.InlineKeyboardButton("Время тыгдыка!", callback_data = 'Three1')
         item2 = types.InlineKeyboardButton("Спать с человеком", callback_data = 'Three2')
@@ -263,7 +315,7 @@ def catTest(num, message):
         item4 = types.InlineKeyboardButton("На диван не пускают :(", callback_data = 'Three4')
         markup.add(item1, item2, item3, item4)
         bot.send_message(message.chat.id, "Кстати, ночь:", reply_markup = markup)
-    elif num == 3:            
+    elif num == 3:
         markup = types.InlineKeyboardMarkup(row_width = 1)
         item1 = types.InlineKeyboardButton("Какие мыши?", callback_data = 'Four1')
         item2 = types.InlineKeyboardButton("Ррр! Я их ловлю!", callback_data = 'Four2')
@@ -271,7 +323,7 @@ def catTest(num, message):
         item4 = types.InlineKeyboardButton("Вместе таскаем еду", callback_data = 'Four4')
         markup.add(item1, item2, item3, item4)
         bot.send_message(message.chat.id, "А мыши?", reply_markup = markup)
-    elif num == 4:            
+    elif num == 4:
         markup = types.InlineKeyboardMarkup(row_width = 1)
         item1 = types.InlineKeyboardButton("Мурр! Ещё за ушком!", callback_data = 'Five1')
         item2 = types.InlineKeyboardButton("Ладно, разрешу", callback_data = 'Five2')
@@ -279,7 +331,7 @@ def catTest(num, message):
         item4 = types.InlineKeyboardButton("Обшерстил человека", callback_data = 'Five4')
         markup.add(item1, item2, item3, item4)
         bot.send_message(message.chat.id, "Когда меня гладят", reply_markup = markup)
-    elif num == 5:            
+    elif num == 5:
         markup = types.InlineKeyboardMarkup(row_width = 1)
         item1 = types.InlineKeyboardButton("Своего человека", callback_data = 'Six1')
         item2 = types.InlineKeyboardButton("Дом и миску", callback_data = 'Six2')
@@ -287,7 +339,7 @@ def catTest(num, message):
         item4 = types.InlineKeyboardButton("Кусать огурцы и дыню", callback_data = 'Six4')
         markup.add(item1, item2, item3, item4)
         bot.send_message(message.chat.id, "Люблю", reply_markup = markup)
-        
+
 def frmMsg(call):
     global par
     par1 = par[getName(call.message)]
@@ -295,60 +347,60 @@ def frmMsg(call):
         s1 = 1
     else:
         s1 = -1
-                
+
     if par1[1] > 0:
         s2 = 1
     else:
         s2 = -1
-            
+
     if par1[2] > 4:
         s3 = 1
     else:
         s3 = 0
-                
+
     #s = "Итак, вы " + s1 + s2 + s3
     s= ""
     if s1 == 1:
         if s2 == 1:
             if s3 == 1:
                 s = "Любимое чучело: ты бьёшь вазы в доме но потом приходишь мириться. Ну и пусть покормят заодно!"
-                sti = open('Results\\chuchelo.jpg', 'rb')
+                sti = open('Results/chuchelo.jpg', 'rb')
                 bot.send_sticker(call.message.chat.id, sti)
             if s3 == 0:
                 s = "Усатый гурман: и обниматься любишь, и вазы бить не станешь, ведь где-то там ждёт еда..."
-                sti = open('Results\\gurman.jpg', 'rb')
+                sti = open('Results/gurman.jpg', 'rb')
                 bot.send_sticker(call.message.chat.id, sti)
         if s2 == -1:
             if s3 == 1:
                 s = "Когтистая смерть: худая и одичавшая, но тебя любят"
-                sti = open('Results\\smert.jpg', 'rb')
+                sti = open('Results/smert.jpg', 'rb')
                 bot.send_sticker(call.message.chat.id, sti)
             if s3 == 0:
                 s = "Фитнес-кошечка: ласковая, аккуратная, худая, идеальная"
-                sti = open('Results\\fitness.jpg', 'rb')
+                sti = open('Results/fitness.jpg', 'rb')
                 bot.send_sticker(call.message.chat.id, sti)
     if s1 == -1:
         if s2 == 1:
             if s3 == 1:
                 s = "Самодостаточность: и поесть, и диван подрать - зачем тут хозяева?"
-                sti = open('Results\\sama.jpg', 'rb')
+                sti = open('Results/sama.jpeg', 'rb')
                 bot.send_sticker(call.message.chat.id, sti)
             if s3 == 0:
                 s = "Тёмный комочек: ты много спишь и умываешься, тебе хорошо в своём внутреннем мире"
-                sti = open('Results\\komok.jpg', 'rb')
+                sti = open('Results/komok.jpg', 'rb')
                 bot.send_sticker(call.message.chat.id, sti)
         if s2 == -1:
             if s3 == 1:
                 s = "Мартовский кот: тебе пофиг даже на еду, ты ищешь романтики!"
-                sti = open('Results\\mart.jpg', 'rb')
+                sti = open('Results/mart.jpg', 'rb')
                 bot.send_sticker(call.message.chat.id, sti)
             if s3 == 0:
                 s = "Тихая тень: тебя видели, но сколько дней назад - никто не помнит"
-                sti = open('Results\\ten.jpg', 'rb')
+                sti = open('Results/ten.jpg', 'rb')
                 bot.send_sticker(call.message.chat.id, sti)
-    
+
     Hist = open('AllActivityHistory.txt', 'a')
-    Hist.write("Test result: " + getNameUser(call) + " " + s + '\n')
+    Hist.write(str(datetime.datetime.now()) + " " + getNameUser(call) + " Test result: " + " " + s + '\n')
     Hist.close()
     #print(par1)
     par1 = [0, 0, 0]
@@ -371,7 +423,7 @@ def getNameUser(message):
 
 #Run
 Hist = open('AllActivityHistory.txt', 'a')
-Hist.write("Restart. Date and time: " + str(datetime.datetime.now()) + '\n')
+Hist.write(str(datetime.datetime.now()) + " Restart." + '\n')
 Hist.close()
 Ub = open('UserDialogsBase.txt', 'r')
 for line in Ub:
@@ -380,4 +432,10 @@ for line in Ub:
     par[int(line.replace("\n",""))] = [0, 0, 0]
 Ub.close()
 #print(grad)
-bot.polling(none_stop = True)
+try:
+    bot.infinity_polling(timeout=10, long_polling_timeout=5)
+except (ConnectionError, ReadTimeout) as e:
+    sys.stdout.flush()
+    os.execv(sys.argv[0], sys.argv)
+else:
+    bot.infinity_polling(timeout=10, long_polling_timeout=5)
