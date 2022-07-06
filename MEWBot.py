@@ -1,3 +1,4 @@
+# need to fix: global vars --> sql database
 import os, sys
 import os.path
 from requests.exceptions import ConnectionError, ReadTimeout
@@ -11,37 +12,37 @@ import shutil
 
 grad = {"NoUser": 0}
 tm = {"NoTime": 0}
-par = {"NoPar":[0, 0, 0]} #love, food, mood
+par = {"NoPar":[0, 0, 0]} #love, food, mood -- features for test
 
-bot = telebot.TeleBot(Config.TOKEN)
+bot = telebot.TeleBot(Config.TOKEN) #access
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
-    item1 = types.KeyboardButton("Покажи мне котика!")
+    item1 = types.KeyboardButton("Покажи мне котика!") #only instruction
     item2 = types.KeyboardButton("Определи, какой я котик")
     item3 = types.KeyboardButton("Покормить")
     item4 = types.KeyboardButton("Мемы про котов")
-    item5 = types.KeyboardButton("Рекомендовать мем")
+    item5 = types.KeyboardButton("Рекомендовать мем") #instruction too
     markup.add(item1, item2, item3, item4, item5)
     bot.send_message(message.chat.id, "Мур, {0.first_name}!\n я - <b>{1.first_name}</b>, твой цифровой кот (и моя миска опять пуста!)  \n Что ты там хомячишь? Поделись? ".format(message.from_user, bot.get_me()),
                      parse_mode = 'html', reply_markup = markup)
     sti = open('intro.jpg', 'rb')
     bot.send_sticker(message.chat.id, sti)
 
-    Ub = open('UserDialogsBase.txt', 'a')
+    Ub = open('UserDialogsBase.txt', 'a') #base file for restarts
     Ub.write(str(getName(message)) + '\n')
     Ub.close()
 
-    grad[getName(message)] = 0
+    grad[getName(message)] = 0 #init global vars
     tm[getName(message)] = datetime.datetime.now()
     par[getName(message)] = [0, 0, 0]
 
     Hist = open('AllActivityHistory.txt', 'a')
-    Hist.write(str(datetime.datetime.now()) + " " + getNameUser(message) + " New user" + '\n')
+    Hist.write(str(datetime.datetime.now()) + " " + getNameUser(message) + " New user" + '\n') #call to history file
     Hist.close()
 
-@bot.message_handler(content_types=['photo', 'document', 'video'])
+@bot.message_handler(content_types=['photo', 'document', 'video']) #accepting fecommended memes
 def addMem(message):
     Hist = open('AllActivityHistory.txt', 'a')
     Hist.write(str(datetime.datetime.now()) + " " + getNameUser(message) + " New content №" + str(len(os.listdir('UserMemes/'))+1) + '\n')
@@ -66,7 +67,7 @@ def addMem(message):
         with open("UserMemes/" + str(len(os.listdir('UserMemes/'))+1) + ".mp4", 'wb') as new_file:
             new_file.write(downloaded_file)
 
-@bot.message_handler(content_types=['text'])
+@bot.message_handler(content_types=['text']) #main buttons commands handler
 def MainKeyboardHandler(message):
     Hist = open('AllActivityHistory.txt', 'a')
     Hist.write(str(datetime.datetime.now()) + " " + getNameUser(message) + " Message: " + " -- " + message.text + '\n')
@@ -77,8 +78,7 @@ def MainKeyboardHandler(message):
         elif message.text == 'Определи, какой я котик':
             bot.send_message(message.chat.id, "Поехали! 6 вопросов")
             par[getName(message)] = [0, 0, 0]
-            catTest(0, message)
-            #print(getName(message))
+            catTest(0, message) #start cycle of test qst
         elif message.text == 'Покормить':
             markup = types.InlineKeyboardMarkup(row_width = 1)
             item1 = types.InlineKeyboardButton("Кормом", callback_data = 'pack')
@@ -88,7 +88,7 @@ def MainKeyboardHandler(message):
 
             bot.send_message(message.chat.id, "Чем покормишь? Мрр", reply_markup = markup)
         elif message.text == 'Мемы про котов':
-            l = os.listdir('Memes/')
+            l = os.listdir('Memes/') #all files in dir
             print('Memes/' + l[random.randint(0,len(l)-1)])
             sti = open('Memes/' + l[random.randint(0,len(l)-1)], 'rb')
             bot.send_photo(message.chat.id, sti)
@@ -96,21 +96,21 @@ def MainKeyboardHandler(message):
             bot.send_message(message.chat.id, "Просто скинь мне картинку с мемом (или видео, файл, ссылку)! Модератор просмотрит его (поржёт) и добавит в коллекцию.")
         else:
             if "http" in message.text:
-                lnk = open('UserMemes/MemLinks.txt', 'a')
+                lnk = open('UserMemes/MemLinks.txt', 'a') #for links
                 lnk.write(message.text + '\n')
                 lnk.close()
             else:
-                if os.path.exists("CatsDownloaded/"+str(getNameUser(message))+"/"):
+                if os.path.exists("CatsDownloaded/"+str(getNameUser(message))+"/"): #delete old dir
                     shutil.rmtree("CatsDownloaded/"+str(getNameUser(message))+"/")
                 else:
                     os.chdir("CatsDownloaded/")
-                    os.mkdir(str(getNameUser(message))+"/")
+                    os.mkdir(str(getNameUser(message))+"/") #user's dwnld imgs dir
                     os.chdir("..")
-                bot.send_message(message.chat.id, "Loaing...")
+                bot.send_message(message.chat.id, "Loading...")
                 sti = open("load.jpg", 'rb')
                 bot.send_sticker(message.chat.id, sti)
 
-                request_word = message.text + ' кот фото'
+                request_word = message.text + ' +кот фото'
                 num_pic = 5
                 filters = dict(size='medium')
                 ggl = GoogleImageCrawler(storage={'root_dir': 'CatsDownloaded/'+str(getNameUser(message))+"/"})
@@ -128,10 +128,12 @@ def callback_infine(call):
     Hist = open('AllActivityHistory.txt', 'a')
     Hist.write(str(datetime.datetime.now()) + " " + getNameUser(call) + " Call: " + " -- " + call.message.text + " " + call.data + '\n')
     Hist.close()
+    chLvl(call.message)
     grad1 = grad[getName(call.message)]
     par1 = par[getName(call.message)]
     #print(grad)
     nm = 0
+    #lists to return if user give food
     pack1 = ["Оо! Мрр, спасибо!", "Вкуснотища!", "А можно ещё?", "Отличный корм", "Вкусно, но мало"]
     pack2 = ["Мяв, наелся", "Ещё? Нуу.. Давай", "Дай погрызть огурца теперь", "(еле дышит)", "Это лучше чем вские ваши мыши"]
     pack3 = ["Неее", "(воротит нос от миски)", "Спасибо, не сейчас", "Я же лопну", "Оставь здесь, потом доем"]
@@ -143,12 +145,8 @@ def callback_infine(call):
     grass3 = ["Серьёзно???", "Мне её растаскать по полу?", "(обиженное сопение)", "(вялое обнюхивание)", "(непонимающий ор)"]
     try:
         if call.message:
-            #print(call.data)
             if call.data == 'pack':
-                chLvl(call.message)
                 nm = random.randint(0, 4)
-                if grad1 < 3:
-                    grad1 = grad1 + 1
                 if grad1 < 2:
                     bot.send_message(call.message.chat.id, pack1[nm])
                 elif grad1 == 2:
@@ -156,11 +154,11 @@ def callback_infine(call):
                 elif grad1 == 3:
                     bot.send_message(call.message.chat.id, pack3[nm])
                     bot.send_message(call.message.chat.id, "Подсказка: ваш котик сыт, приходите позже. Через 5 минут он оголодает а через 10 натурально озвереет!")
-            elif call.data == 'meat':
-                chLvl(call.message)
-                nm = random.randint(0, 4)
                 if grad1 < 3:
                     grad1 = grad1 + 1
+                print(grad1)
+            elif call.data == 'meat':
+                nm = random.randint(0, 4)
                 if grad1 < 2:
                     bot.send_message(call.message.chat.id, meat1[nm])
                 elif grad1 == 2:
@@ -168,11 +166,10 @@ def callback_infine(call):
                 elif grad1 == 3:
                     bot.send_message(call.message.chat.id, meat3[nm])
                     bot.send_message(call.message.chat.id, "Подсказка: ваш котик сыт, приходите позже. Через 5 минут он оголодает а через 10 натурально озвереет!")
-            elif call.data == 'grass':
-                chLvl(call.message)
-                nm = random.randint(0, 4)
                 if grad1 < 3:
                     grad1 = grad1 + 1
+            elif call.data == 'grass':
+                nm = random.randint(0, 4)
                 if grad1 < 2:
                     bot.send_message(call.message.chat.id, grass1[nm])
                 elif grad1 == 2:
@@ -180,7 +177,9 @@ def callback_infine(call):
                 elif grad1 == 3:
                     bot.send_message(call.message.chat.id, grass3[nm])
                     bot.send_message(call.message.chat.id, "Подсказка: ваш котик сыт, приходите позже. Через 5 минут он оголодает а через 10 натурально озвереет!")
-            elif call.data == 'One1':
+                if grad1 < 3:
+                    grad1 = grad1 + 1
+            elif call.data == 'One1': #test results: every answer starts next one and last init result count
                 par1[0] = par1[0] + 1
                 catTest(1, call.message)
             elif call.data == 'One2':
@@ -268,7 +267,7 @@ def callback_infine(call):
     grad[getName(call.message)] = grad1
     par[getName(call.message)] = par1
 
-def chLvl(message):
+def chLvl(message): #here we measure how hungry is our cat in every callback
     global grad
     global tm
     tm1 = tm[getName(message)]
@@ -277,6 +276,7 @@ def chLvl(message):
     a = int(((now.day * 24) + now.hour) * 60 + now.minute)
     b = int(((tm1.day * 24) + tm1.hour) * 60 + tm1.minute)
     diff = a - b
+    print(diff)
     if diff > 15:
         mn = 3
     elif diff > 10:
@@ -291,10 +291,11 @@ def chLvl(message):
         grad1 = grad1 - mn
     if mn > 0:
         tm1 = now
+    print("--",grad1)
     grad[getName(message)] = grad1
     tm[getName(message)] = tm1
 
-def catTest(num, message):
+def catTest(num, message): #test q&a
     if num == 0:
         markup = types.InlineKeyboardMarkup(row_width = 1)
         item1 = types.InlineKeyboardButton("Мурлычу и трусь о ногу", callback_data = 'One1')
@@ -344,7 +345,7 @@ def catTest(num, message):
         markup.add(item1, item2, item3, item4)
         bot.send_message(message.chat.id, "Люблю", reply_markup = markup)
 
-def frmMsg(call):
+def frmMsg(call): #form of test result
     global par
     par1 = par[getName(call.message)]
     if par1[0] > 0:
@@ -362,7 +363,7 @@ def frmMsg(call):
     else:
         s3 = 0
 
-    #s = "Итак, вы " + s1 + s2 + s3
+    #tree of variants
     s= ""
     if s1 == 1:
         if s2 == 1:
@@ -406,18 +407,16 @@ def frmMsg(call):
     Hist = open('AllActivityHistory.txt', 'a')
     Hist.write(str(datetime.datetime.now()) + " " + getNameUser(call) + " Test result: " + " " + s + '\n')
     Hist.close()
-    #print(par1)
-    par1 = [0, 0, 0]
+    par1 = [0, 0, 0] #returning zeros for clear test restart
     par[getName(call.message)] = par1
     return(s)
 
-def getName(message): #dialog name!
+def getName(message): #dialog name! only for system
     uid = message.chat.id
     name = uid
-    #print(name)
     return(name)
 
-def getNameUser(message):
+def getNameUser(message): #user name - for difference betw users
     uid = message.from_user.id
     fnm = message.from_user.first_name
     lnm = message.from_user.last_name
@@ -430,7 +429,7 @@ Hist = open('AllActivityHistory.txt', 'a')
 Hist.write(str(datetime.datetime.now()) + " Restart." + '\n')
 Hist.close()
 Ub = open('UserDialogsBase.txt', 'r')
-for line in Ub:
+for line in Ub: #reloading of users base
     grad[int(line.replace("\n",""))] = 0
     tm[int(line.replace("\n",""))] = datetime.datetime.now()
     par[int(line.replace("\n",""))] = [0, 0, 0]
